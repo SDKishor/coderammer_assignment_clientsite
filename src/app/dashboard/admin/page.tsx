@@ -77,19 +77,29 @@ export default function AdminDashboard() {
 
       // Fetch transactions from API - Mock data
       const fetchTransactions = async () => {
-        const response = await fetch("http://localhost:5000/api/transaction/", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await fetch(
+          "https://coderammer-serverside.vercel.app/api/transaction/",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
+        //sort by createdAt
+        data.data.sort((a: Transaction, b: Transaction) => {
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+
         setTransactions(data.data);
       };
 
@@ -136,7 +146,7 @@ export default function AdminDashboard() {
 
       const endpoint = status === "approved" ? "approve" : "reject";
       const response = await fetch(
-        `http://localhost:5000/api/transaction/${endpoint}/${selectedTransaction}`,
+        `https://coderammer-serverside.vercel.app/api/transaction/${endpoint}/${selectedTransaction}`,
         {
           method: "PATCH",
           headers: {
