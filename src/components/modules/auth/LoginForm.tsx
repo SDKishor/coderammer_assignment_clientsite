@@ -13,6 +13,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import { jwtDecode } from "jwt-decode";
+import { CircleDashed } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email({
@@ -23,7 +28,16 @@ const loginSchema = z.object({
   }),
 });
 
+interface JwtPayload {
+  id: string;
+  role: string;
+  name?: string;
+}
+
 export function LoginForm() {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -32,8 +46,45 @@ export function LoginForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof loginSchema>) {
-    console.log(values); // Replace with your login logic
+  async function onSubmit(values: z.infer<typeof loginSchema>) {
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.message || "Login failed. Please try again.");
+        return;
+      }
+
+      // Store token in localStorage
+      localStorage.setItem("token", data.data.token);
+
+      // Decode token to get user role
+      const decoded: JwtPayload = jwtDecode(data.data.token);
+
+      toast.success("Login successful!");
+
+      // Redirect based on role
+      if (decoded.role === "admin") {
+        router.push("/dashboard/admin");
+      } else {
+        router.push("/dashboard/user");
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      toast.error("Network error. Please check your connection.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -87,6 +138,11 @@ export function LoginForm() {
             className="w-full py-6 font-bold text-lg cursor-pointer"
           >
             Login
+            {isSubmitting && (
+              <span className="animate-spin ">
+                <CircleDashed />
+              </span>
+            )}
           </Button>
         </form>
       </Form>

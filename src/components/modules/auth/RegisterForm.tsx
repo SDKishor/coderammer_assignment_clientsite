@@ -13,8 +13,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import { CircleDashed } from "lucide-react";
 
-const formSchema = z.object({
+const registerSchema = z.object({
   name: z.string().min(2, {
     message: "Username must be at least 2 characters.",
   }),
@@ -27,8 +31,12 @@ const formSchema = z.object({
 });
 
 export function RegistrationForm() {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const router = useRouter();
+  const [error, setError] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm<z.infer<typeof registerSchema>>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -36,8 +44,46 @@ export function RegistrationForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values); // Replace with your form submission logic
+  async function onSubmit(values: z.infer<typeof registerSchema>) {
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.errors) {
+          data.errors.forEach((err: { field: string; message: string }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            form.setError(err.field as any, {
+              type: "manual",
+              message: err.message,
+            });
+          });
+        } else {
+          toast.error(data.message || "Registration failed. Please try again.");
+        }
+        return;
+      }
+
+      // Registration successful
+
+      toast.success("Registration successful! Redirecting to login...");
+      setTimeout(() => router.push("/login"), 1500);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      toast.error("Network error. Please check your connection.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -45,6 +91,8 @@ export function RegistrationForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Name Field */}
+          {error && <p className="text-red-500 text-center text-sm">{error}</p>}
+
           <FormField
             control={form.control}
             name="name"
@@ -108,9 +156,15 @@ export function RegistrationForm() {
 
           <Button
             type="submit"
+            disabled={isSubmitting}
             className="w-full py-6 font-bold text-lg cursor-pointer"
           >
-            Register
+            Register{" "}
+            {isSubmitting && (
+              <span className="animate-spin ">
+                <CircleDashed />
+              </span>
+            )}
           </Button>
         </form>
       </Form>
